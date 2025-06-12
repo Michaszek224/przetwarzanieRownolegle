@@ -3,7 +3,7 @@ from sklearn.datasets import make_blobs
 import os
 import time
 
-num_points = 10000000
+num_points = 100_000
 dimensions = 2
 num_clusters_in_data = 5
 std_dev_of_clusters = 1.0
