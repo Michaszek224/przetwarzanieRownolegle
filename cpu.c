@@ -119,30 +119,22 @@ Point* load_data_from_file(const char* filename, int* num_points, int* dimension
         fprintf(stderr, "Błąd: Nie można otworzyć pliku danych '%s'\n", filename);
         exit(EXIT_FAILURE);
     }
-
-    // --- MODYFIKACJA TUTAJ ---
-    // Read num_points and dimensions from the first line
     if (fscanf(file, "%d %d", num_points, dimensions) != 2) {
         fprintf(stderr, "Błąd: Nie udało się odczytać liczby punktów i wymiarów z pierwszej linii pliku '%s'.\n", filename);
         fclose(file);
         exit(EXIT_FAILURE);
     }
-
-    // Allocate memory for data points
     Point* data_points = (Point*)malloc(*num_points * sizeof(Point));
     if (data_points == NULL) {
         fprintf(stderr, "Błąd alokacji pamięci dla punktów danych.\n");
         fclose(file);
         exit(EXIT_FAILURE);
     }
-
-    // Read the actual data points
     for (int i = 0; i < *num_points; ++i) {
         data_points[i].dimensions = *dimensions;
         data_points[i].coords = (float*)malloc(*dimensions * sizeof(float));
         if (data_points[i].coords == NULL) {
             fprintf(stderr, "Błąd alokacji pamięci dla współrzędnych punktu.\n");
-            // Clean up previously allocated memory
             for (int j = 0; j < i; ++j) {
                 free(data_points[j].coords);
             }
@@ -150,11 +142,9 @@ Point* load_data_from_file(const char* filename, int* num_points, int* dimension
             fclose(file);
             exit(EXIT_FAILURE);
         }
-
         for (int d = 0; d < *dimensions; ++d) {
             if (fscanf(file, "%f", &data_points[i].coords[d]) != 1) {
                 fprintf(stderr, "Błąd odczytu danych z pliku '%s' w punkcie %d, wymiar %d. Sprawdź format pliku.\n", filename, i, d);
-                // Clean up all allocated memory before exiting
                 for (int j = 0; j <= i; ++j) {
                     free(data_points[j].coords);
                 }
@@ -164,7 +154,6 @@ Point* load_data_from_file(const char* filename, int* num_points, int* dimension
             }
         }
     }
-
     fclose(file);
     printf("Wczytano %d punktów o %d wymiarach z pliku '%s'.\n", *num_points, *dimensions, filename);
     return data_points;

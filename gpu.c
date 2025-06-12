@@ -7,7 +7,6 @@
 #include <string.h>
 #include <CL/cl.h>
 
-// Helper function to check OpenCL errors
 void check_cl_error(cl_int err, const char* name) {
     if (err != CL_SUCCESS) {
         fprintf(stderr, "ERROR: %s (%d)\n", name, err);
@@ -15,7 +14,6 @@ void check_cl_error(cl_int err, const char* name) {
     }
 }
 
-// Helper function to load kernel source from a file
 char* load_kernel_source(const char* filename) {
     FILE* file = fopen(filename, "r");
     if (!file) {
@@ -31,22 +29,18 @@ char* load_kernel_source(const char* filename) {
         fclose(file);
         exit(1);
     }
-    
-    // Check the return value of fread
     size_t bytes_read = fread(source, 1, length, file);
     if (bytes_read != length) {
         fprintf(stderr, "Błąd odczytu całego pliku kernela: %s. Odczytano %zu z %zu bajtów.\n", filename, bytes_read, length);
-        free(source); // Free allocated memory before exiting
+        free(source);
         fclose(file);
         exit(1);
     }
-
     source[length] = '\0';
     fclose(file);
     return source;
 }
 
-// Helper function to save assignments to a file
 void save_assignments_to_file(const char* filename, const int* assignments, int num_points) {
     FILE* file = fopen(filename, "w");
     if (!file) {
@@ -60,7 +54,6 @@ void save_assignments_to_file(const char* filename, const int* assignments, int 
     printf("Przypisania zapisane do pliku: %s\n", filename);
 }
 
-// Helper function to save centroids to a file
 void save_centroids_to_file(const char* filename, const float* centroids_flat, int K, int dimensions) {
     FILE* file = fopen(filename, "w");
     if (!file) {
@@ -76,8 +69,6 @@ void save_centroids_to_file(const char* filename, const float* centroids_flat, i
     printf("Centroidy zapisane do pliku: %s\n", filename);
 }
 
-
-// Inicjalizacja centroidów (bez zmian)
 void initialize_centroids(const float* data_points_flat, int num_points, float* centroids_flat, int K, int dimensions) {
     srand((unsigned int)time(NULL));
     for (int i = 0; i < K; ++i) {
@@ -88,29 +79,23 @@ void initialize_centroids(const float* data_points_flat, int num_points, float* 
     }
 }
 
-// Wczytywanie danych (bez zmian)
 float* load_data_from_file_flat(const char* filename, int* num_points, int* dimensions) {
     FILE* file = fopen(filename, "r");
     if (!file) {
         fprintf(stderr, "Nie można otworzyć pliku danych: %s\n", filename);
         exit(1);
     }
-
-    // Read dimensions and number of points (assuming first line contains these)
-    // This is a common format, adjust if your data file format is different.
     if (fscanf(file, "%d %d", num_points, dimensions) != 2) {
         fprintf(stderr, "Błąd odczytu liczby punktów i wymiarów z pliku: %s\n", filename);
         fclose(file);
         exit(1);
     }
-
     float* data_points_flat = (float*)malloc(*num_points * *dimensions * sizeof(float));
     if (!data_points_flat) {
         fprintf(stderr, "Błąd alokacji pamięci dla punktów danych.\n");
         fclose(file);
         exit(1);
     }
-
     for (int i = 0; i < *num_points * *dimensions; ++i) {
         if (fscanf(file, "%f", &data_points_flat[i]) != 1) {
             fprintf(stderr, "Błąd odczytu danych z pliku.\n");
@@ -119,7 +104,6 @@ float* load_data_from_file_flat(const char* filename, int* num_points, int* dime
             exit(1);
         }
     }
-
     fclose(file);
     return data_points_flat;
 }
@@ -129,19 +113,14 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Użycie: %s <plik_danych.txt> [liczba_klastrow] [max_iteracji]\n", argv[0]);
         return 1;
     }
-
     const char* data_filename = argv[1];
     int num_points, dimensions;
     int K = (argc > 2) ? atoi(argv[2]) : 5;
     int max_iterations = (argc > 3) ? atoi(argv[3]) : 10000;
-
-    // Wczytaj dane
     float* h_data_points = load_data_from_file_flat(data_filename, &num_points, &dimensions);
     float* h_centroids = (float*)malloc(K * dimensions * sizeof(float));
     int* h_assignments = (int*)malloc(num_points * sizeof(int));
     initialize_centroids(h_data_points, num_points, h_centroids, K, dimensions);
-
-    // Inicjalizacja OpenCL
     cl_platform_id platform;
     cl_device_id device;
     cl_context context;
@@ -149,8 +128,6 @@ int main(int argc, char* argv[]) {
     cl_program program;
     cl_kernel assign_kernel, reset_kernel, accumulate_kernel, finalize_kernel;
     cl_int err;
-
-    // Wybierz platformę i urządzenie
     err = clGetPlatformIDs(1, &platform, NULL);
     check_cl_error(err, "clGetPlatformIDs");
     err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL);
@@ -159,20 +136,14 @@ int main(int argc, char* argv[]) {
         err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &device, NULL);
         check_cl_error(err, "clGetDeviceIDs");
     }
-
-    // Pobierz nazwę urządzenia
     char device_name[128];
     clGetDeviceInfo(device, CL_DEVICE_NAME, sizeof(device_name), device_name, NULL);
     printf("Urządzenie: %s\n", device_name);
-
-    // Utwórz kontekst i kolejkę
     context = clCreateContext(NULL, 1, &device, NULL, NULL, &err);
     check_cl_error(err, "clCreateContext");
     cl_queue_properties props[] = {CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE, 0};
     queue = clCreateCommandQueueWithProperties(context, device, props, &err);
     check_cl_error(err, "clCreateCommandQueue");
-
-    // Załaduj i skompiluj kernel
     char* kernel_source = load_kernel_source("gpu.cl");
     program = clCreateProgramWithSource(context, 1, (const char**)&kernel_source, NULL, &err);
     check_cl_error(err, "clCreateProgramWithSource");
@@ -187,8 +158,6 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
     free(kernel_source);
-
-    // Utwórz kernele
     assign_kernel = clCreateKernel(program, "assign_to_clusters_kernel", &err);
     check_cl_error(err, "clCreateKernel assign");
     reset_kernel = clCreateKernel(program, "reset_buffers_kernel", &err);
@@ -197,100 +166,47 @@ int main(int argc, char* argv[]) {
     check_cl_error(err, "clCreateKernel accumulate");
     finalize_kernel = clCreateKernel(program, "finalize_centroids_kernel", &err);
     check_cl_error(err, "clCreateKernel finalize");
-
-    // Przygotuj bufory
     size_t data_size = num_points * dimensions * sizeof(float);
     size_t centroid_size = K * dimensions * sizeof(float);
     size_t assignment_size = num_points * sizeof(int);
     size_t sum_size = K * dimensions * sizeof(float);
     size_t count_size = K * sizeof(int);
-
     cl_mem d_data = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, data_size, h_data_points, &err);
     cl_mem d_centroids = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, centroid_size, h_centroids, &err);
     cl_mem d_assignments = clCreateBuffer(context, CL_MEM_READ_WRITE, assignment_size, NULL, &err);
     cl_mem d_sums = clCreateBuffer(context, CL_MEM_READ_WRITE, sum_size, NULL, &err);
     cl_mem d_counts = clCreateBuffer(context, CL_MEM_READ_WRITE, count_size, NULL, &err);
-    
-    // Ustaw rozmiary grup roboczych
     size_t local_assign[1] = {256};
     size_t global_assign[1] = {((num_points + 255) / 256) * 256};
-    
-    // The reset kernel should also cover all `K * dimensions` for sums and `K` for counts.
-    // A global size of `K * dimensions` or `K` might be more appropriate here, but for simplicity
-    // and assuming `global_assign` is large enough to cover these, we can reuse it or
-    // set a specific global size for `reset_kernel` like `((K * dimensions + 255) / 256) * 256`
-    // and `((K + 255) / 256) * 256`. However, for reset, if `K` or `K * dimensions` is small,
-    // a global size related to `K` or `K * dimensions` would be more efficient.
-    // For now, let's assume `global_assign` is sufficiently large or adapt the kernel.
-    // The current reset_kernel works with `gid < K * dimensions` and `gid < K`, so a larger `global_assign`
-    // will just lead to some threads doing nothing, which is fine functionally but not optimal.
-    // For proper reset, consider:
-    // size_t global_reset_sums[1] = {((K * dimensions + 255) / 256) * 256};
-    // size_t global_reset_counts[1] = {((K + 255) / 256) * 256};
-    // And then enqueue two separate reset kernels or one kernel with a larger global size.
-    // For simplicity, sticking to the original `global_assign` for now, assuming `K * dimensions` is covered.
-
     size_t local_accumulate[1] = {256};
     size_t global_accumulate[1] = {((num_points + 255) / 256) * 256};
-    
     size_t local_finalize[1] = {K < 256 ? K : 256};
     size_t global_finalize[1] = {K};
-
-    // Alokuj pamięć lokalną
-    // Note: local_centroid_mem should be size for K*dimensions, not just K
-    // local_sum_mem and local_count_mem should be sized for K*dimensions and K respectively
-    // The arguments for clSetKernelArg with CL_MEM_LOCAL should be 0 for size if kernel uses __local parameters
-    // that are already declared with a size within the kernel itself.
-    // If you declare them with NULL and size here, OpenCL allocates the memory at runtime.
-    // The size of local memory passed to clSetKernelArg should be the total size
-    // needed for the specific kernel's local memory arguments.
-    // Since local_centroids, local_sums, local_counts are declared within the kernel using a
-    // size that depends on K and dimensions, you need to pass their *actual* size here.
     size_t local_centroid_mem = K * dimensions * sizeof(float);
     size_t local_sum_mem = K * dimensions * sizeof(float);
     size_t local_count_mem = K * sizeof(int);
-
-
-    // Pomiar czasu
     clock_t start = clock();
     double kernel_time = 0;
-
     for (int iter = 0; iter < max_iterations; iter++) {
-        // Przypisanie punktów do klastrów
         clSetKernelArg(assign_kernel, 0, sizeof(cl_mem), &d_data);
         clSetKernelArg(assign_kernel, 1, sizeof(cl_mem), &d_centroids);
         clSetKernelArg(assign_kernel, 2, sizeof(cl_mem), &d_assignments);
         clSetKernelArg(assign_kernel, 3, sizeof(int), &num_points);
         clSetKernelArg(assign_kernel, 4, sizeof(int), &dimensions);
         clSetKernelArg(assign_kernel, 5, sizeof(int), &K);
-        // This sets the size of local memory for local_centroids. The actual allocation happens at kernel execution.
         clSetKernelArg(assign_kernel, 6, local_centroid_mem, NULL); 
         cl_event assign_event;
         clEnqueueNDRangeKernel(queue, assign_kernel, 1, NULL, global_assign, local_assign, 0, NULL, &assign_event);
         clWaitForEvents(1, &assign_event);
-        
-        // Resetuj bufory sum
-        // For reset, if K*dimensions or K is small, you might want a smaller global work size or
-        // to launch two separate kernels. For large K, global_assign might be inefficient.
-        // Assuming K*dimensions and K are within reasonable bounds of global_assign.
         clSetKernelArg(reset_kernel, 0, sizeof(cl_mem), &d_sums);
         clSetKernelArg(reset_kernel, 1, sizeof(cl_mem), &d_counts);
         clSetKernelArg(reset_kernel, 2, sizeof(int), &K);
         clSetKernelArg(reset_kernel, 3, sizeof(int), &dimensions);
-        // The global work size for reset_kernel should ideally be `K * dimensions` for sums and `K` for counts.
-        // If you want to use a single kernel and global_assign, ensure it covers both.
-        // For example, if you want to reset sums (K*dimensions elements) and counts (K elements)
-        // using the same kernel and global_assign, the kernel must handle it, which it does
-        // with `if (gid < K * dimensions)` and `if (gid < K)`.
-        // So, using global_assign for reset is functionally correct if global_assign is at least `max(K*dimensions, K)`.
-        // Let's use a global size that covers what needs to be reset.
         size_t global_reset_size = ((K * dimensions + local_assign[0] - 1) / local_assign[0]) * local_assign[0];
-        if (K > global_reset_size) { // Ensure K is also covered if it's larger
+        if (K > global_reset_size) {
              global_reset_size = ((K + local_assign[0] - 1) / local_assign[0]) * local_assign[0];
         }
         clEnqueueNDRangeKernel(queue, reset_kernel, 1, NULL, &global_reset_size, local_assign, 0, NULL, NULL);
-        
-        // Akumuluj sumy
         clSetKernelArg(accumulate_kernel, 0, sizeof(cl_mem), &d_data);
         clSetKernelArg(accumulate_kernel, 1, sizeof(cl_mem), &d_assignments);
         clSetKernelArg(accumulate_kernel, 2, sizeof(cl_mem), &d_sums);
@@ -298,12 +214,9 @@ int main(int argc, char* argv[]) {
         clSetKernelArg(accumulate_kernel, 4, sizeof(int), &num_points);
         clSetKernelArg(accumulate_kernel, 5, sizeof(int), &dimensions);
         clSetKernelArg(accumulate_kernel, 6, sizeof(int), &K);
-        // Set local memory arguments
         clSetKernelArg(accumulate_kernel, 7, local_sum_mem, NULL); 
         clSetKernelArg(accumulate_kernel, 8, local_count_mem, NULL);
         clEnqueueNDRangeKernel(queue, accumulate_kernel, 1, NULL, global_accumulate, local_accumulate, 0, NULL, NULL);
-        
-        // Aktualizuj centroidy
         clSetKernelArg(finalize_kernel, 0, sizeof(cl_mem), &d_centroids);
         clSetKernelArg(finalize_kernel, 1, sizeof(cl_mem), &d_sums);
         clSetKernelArg(finalize_kernel, 2, sizeof(cl_mem), &d_counts);
@@ -311,20 +224,13 @@ int main(int argc, char* argv[]) {
         clSetKernelArg(finalize_kernel, 4, sizeof(int), &K);
         clEnqueueNDRangeKernel(queue, finalize_kernel, 1, NULL, global_finalize, local_finalize, 0, NULL, NULL);
     }
-    
     clFinish(queue);
     double total_time = (double)(clock() - start) / CLOCKS_PER_SEC;
     printf("Czas wykonania: %.4f s\n", total_time);
-
-    // Odczytaj wyniki
     clEnqueueReadBuffer(queue, d_centroids, CL_TRUE, 0, centroid_size, h_centroids, 0, NULL, NULL);
     clEnqueueReadBuffer(queue, d_assignments, CL_TRUE, 0, assignment_size, h_assignments, 0, NULL, NULL);
-
-    // Zapisz wyniki
-    save_centroids_to_file("centroids_gpu_opt.txt", h_centroids, K, dimensions);
-    save_assignments_to_file("assignments_gpu_opt.txt", h_assignments, num_points);
-
-    // Zwolnij zasoby
+    save_centroids_to_file("centroids_gpu.txt", h_centroids, K, dimensions);
+    save_assignments_to_file("assignments_gpu.txt", h_assignments, num_points);
     clReleaseMemObject(d_data);
     clReleaseMemObject(d_centroids);
     clReleaseMemObject(d_assignments);
@@ -337,10 +243,8 @@ int main(int argc, char* argv[]) {
     clReleaseProgram(program);
     clReleaseCommandQueue(queue);
     clReleaseContext(context);
-    
     free(h_data_points);
     free(h_centroids);
     free(h_assignments);
-
     return 0;
 }

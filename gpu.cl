@@ -1,4 +1,3 @@
-// Funkcje atomowe dla float (niezmienione)
 inline void atomic_add_float_global(__global float *addr, float val) {
     union { unsigned int u; float f; } old, new;
     do {
@@ -15,7 +14,6 @@ inline void atomic_add_float_local(__local float *addr, float val) {
     } while (atomic_cmpxchg((volatile __local unsigned int *)addr, old.u, new.u) != old.u);
 }
 
-// Kernele
 __kernel void assign_to_clusters_kernel(
     __global const float* data_points,
     __global float* centroids,
@@ -29,7 +27,6 @@ __kernel void assign_to_clusters_kernel(
     int gid = get_global_id(0);
     int local_size = get_local_size(0);
 
-    // Załaduj centroidy do pamięci lokalnej
     for (int i = lid; i < K * dimensions; i += local_size) {
         local_centroids[i] = centroids[i];
     }
@@ -82,7 +79,6 @@ __kernel void accumulate_sums_kernel(
     int local_size = get_local_size(0);
     int num_clusters = K;
 
-    // Resetuj lokalne bufory
     for (int i = lid; i < num_clusters * dimensions; i += local_size) {
         local_sums[i] = 0.0f;
     }
@@ -91,7 +87,6 @@ __kernel void accumulate_sums_kernel(
     }
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    // Akumuluj w pamięci lokalnej
     if (gid < num_points) {
         int cluster_id = assignments[gid];
         atomic_inc(local_counts + cluster_id);
@@ -101,7 +96,6 @@ __kernel void accumulate_sums_kernel(
     }
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    // Scal z buforami globalnymi
     for (int i = lid; i < num_clusters * dimensions; i += local_size) {
         atomic_add_float_global(&centroid_sums[i], local_sums[i]);
     }
