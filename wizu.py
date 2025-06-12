@@ -37,7 +37,7 @@ def load_centroids(filename, type_name="centroids"):
         data = np.loadtxt(filename, dtype=np.float32)
         end_time = time.time()
         print(f"Loaded {data.shape[0]} {type_name} in {end_time - start_time:.2f} seconds.")
-        if data.ndim == 1: # Handle case where there's only one centroid
+        if data.ndim == 1:
             data = data.reshape(1, -1)
         return data
     except FileNotFoundError:
@@ -81,7 +81,6 @@ def plot_kmeans_results_three_ways(data_points_file,
     gpu_centroids = load_centroids(gpu_centroids_file, "GPU (OpenCL) centroids")
     gpu_assignments = load_assignments(gpu_assignments_file, "GPU (OpenCL) assignments")
 
-    # Check if all necessary files were loaded successfully
     if (data_points is None or 
         sequential_centroids is None or sequential_assignments is None or
         openmp_centroids is None or openmp_assignments is None or
@@ -89,7 +88,6 @@ def plot_kmeans_results_three_ways(data_points_file,
         print("Skipping plot generation due to missing or incorrectly loaded files.")
         return
 
-    # Check for 2D data for plotting
     if data_points.shape[1] != 2:
         print(f"Error: Plotting function only supports 2-dimensional data. Data has {data_points.shape[1]} dimensions. Skipping plot generation.")
         return
@@ -98,12 +96,10 @@ def plot_kmeans_results_three_ways(data_points_file,
         print("Error: Centroids must be 2-dimensional for plotting. Skipping plot generation.")
         return
 
-    # Determine number of clusters and colors for palette
     num_clusters_seq = sequential_centroids.shape[0]
     num_clusters_openmp = openmp_centroids.shape[0]
     num_clusters_gpu = gpu_centroids.shape[0]
 
-    # Ensure all assignments and centroids have valid cluster IDs to determine max_cluster_id
     all_assignments = []
     if sequential_assignments.size > 0: all_assignments.append(np.max(sequential_assignments))
     if openmp_assignments.size > 0: all_assignments.append(np.max(openmp_assignments))
@@ -117,7 +113,6 @@ def plot_kmeans_results_three_ways(data_points_file,
         num_colors = 1
     
     try:
-        # Use Seaborn if available, otherwise fallback to Matplotlib's default
         import seaborn as sns
         palette = sns.color_palette("tab10", num_colors)
         print(f"Using Seaborn color palette with {num_colors} colors.")
@@ -126,10 +121,9 @@ def plot_kmeans_results_three_ways(data_points_file,
         print(f"Seaborn not installed. Using default Matplotlib 'tab10' palette with {num_colors} colors.")
 
     print("Creating plot figure with three subplots...")
-    fig, axes = plt.subplots(1, 3, figsize=(24, 7)) # Changed to 3 subplots
+    fig, axes = plt.subplots(1, 3, figsize=(24, 7))
     fig.suptitle('K-Means Comparison: Sequential vs. OpenMP vs. GPU (OpenCL)', fontsize=16)
 
-    # --- Plot for Sequential (CPU) ---
     print("Plotting results for Sequential (CPU)...")
     for i in range(num_colors):
         cluster_points = data_points[sequential_assignments == i]
@@ -145,7 +139,6 @@ def plot_kmeans_results_three_ways(data_points_file,
     axes[0].set_ylabel('Dimension 2')
     axes[0].grid(True, linestyle='--', alpha=0.7)
 
-    # --- Plot for OpenMP ---
     print("Plotting results for OpenMP (CPU)...")
     for i in range(num_colors):
         cluster_points = data_points[openmp_assignments == i]
@@ -161,7 +154,6 @@ def plot_kmeans_results_three_ways(data_points_file,
     axes[1].set_ylabel('Dimension 2')
     axes[1].grid(True, linestyle='--', alpha=0.7)
 
-    # --- Plot for GPU (OpenCL) ---
     print("Plotting results for GPU (OpenCL)...")
     for i in range(num_colors):
         cluster_points = data_points[gpu_assignments == i]
@@ -178,7 +170,7 @@ def plot_kmeans_results_three_ways(data_points_file,
     axes[2].grid(True, linestyle='--', alpha=0.7)
 
     print(f"Saving plot to file: {output_filename}...")
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust layout to make room for suptitle
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.savefig(output_filename, dpi=300)
     print(f"Plot saved as: {output_filename}")
     plt.close(fig)
@@ -187,34 +179,23 @@ def plot_kmeans_results_three_ways(data_points_file,
     print(f"--- Finished plot generation in {end_total_plot_time - start_total_plot_time:.2f} seconds ---")
 
 if __name__ == "__main__":
-    # Common data file
     data_file = "data.txt"
-
-    # Files for Sequential implementation
     sequential_centroids_file = "centroids_cpu.txt"
     sequential_assignments_file = "assignments_cpu.txt"
-
-    # Files for OpenMP implementation
     openmp_centroids_file = "centroids_openmp.txt" 
     openmp_assignments_file = "assignments_openmp.txt"
-    
-    # Files for GPU (OpenCL) implementation
     gpu_centroids_file = "centroids_gpu.txt" 
     gpu_assignments_file = "assignments_gpu.txt" 
 
     print("Checking for required files...")
     data_exists = os.path.exists(data_file)
-    
     sequential_centroids_exists = os.path.exists(sequential_centroids_file)
     sequential_assignments_exists = os.path.exists(sequential_assignments_file)
-    
     openmp_centroids_exists = os.path.exists(openmp_centroids_file)
     openmp_assignments_exists = os.path.exists(openmp_assignments_file)
-    
     gpu_centroids_exists = os.path.exists(gpu_centroids_file)
     gpu_assignments_exists = os.path.exists(gpu_assignments_file)
 
-    # --- File Existence Checks ---
     if not data_exists:
         print(f"Error: Data file '{data_file}' not found. Please ensure it has been generated.")
     if not sequential_centroids_exists:
@@ -230,7 +211,6 @@ if __name__ == "__main__":
     if not gpu_assignments_exists:
         print(f"Error: File '{gpu_assignments_file}' not found. Please ensure the GPU (OpenCL) program saves assignments.")
     
-    # Proceed with plotting only if all required files exist
     if (data_exists and 
         sequential_centroids_exists and sequential_assignments_exists and
         openmp_centroids_exists and openmp_assignments_exists and
@@ -243,7 +223,7 @@ if __name__ == "__main__":
                 sequential_centroids_file, sequential_assignments_file,
                 openmp_centroids_file, openmp_assignments_file,
                 gpu_centroids_file, gpu_assignments_file,
-                'kmeans_three_way_comparison_plot.png' # Changed output filename
+                'kmeans_three_way_comparison_plot.png'
             )
         else:
             print(f"Skipping plot generation: Data in '{data_file}' is not 2-dimensional or the file is empty/corrupt.")
